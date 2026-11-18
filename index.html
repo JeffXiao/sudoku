@@ -155,6 +155,23 @@ body.dragging *{cursor:grabbing !important;}
   padding:10px 26px; font-size:17px; min-height:48px; box-shadow:var(--shadow);
 }
 @media (prefers-color-scheme: dark){ .new-btn{color:#0b1713;} }
+/* language dropdown */
+.lang-wrap{position:relative;}
+.lang-menu{
+  position:absolute; top:calc(100% + 6px); right:0; z-index:60; min-width:170px;
+  background:var(--panel); border:1px solid var(--line); border-radius:14px;
+  box-shadow:var(--shadow); padding:6px; display:none;
+}
+.lang-menu.show{display:block;}
+.lang-item{
+  display:flex; align-items:center; gap:8px; width:100%; text-align:left;
+  padding:9px 12px; border-radius:9px; font-size:16px; color:var(--ink);
+  min-height:44px; min-width:0;
+}
+.lang-item:hover,.lang-item:active{background:var(--accent-soft);}
+.lang-item .lang-check{width:16px; flex:none; color:var(--accent); font-weight:500; visibility:hidden;}
+.lang-item[aria-checked="true"] .lang-check{visibility:visible;}
+
 @media (max-width:380px){ .diff-btn{padding:6px 9px; font-size:14px;} .num{height:50px; font-size:23px;} }
 </style>
 </head>
@@ -176,10 +193,10 @@ body.dragging *{cursor:grabbing !important;}
       </button>
     </div>
     <div class="right">
-      <button class="icon-btn" id="btn-new-icon" aria-label="New Game">
-        <svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M12 8v8M8 12h8"/></svg>
-      </button>
-      <button class="icon-btn" id="btn-lang" aria-label="Language" style="font-size:20px;">🌐</button>
+      <div class="lang-wrap">
+        <button class="icon-btn" id="btn-lang" aria-label="Language" aria-haspopup="menu" aria-expanded="false" style="font-size:20px;">🌐</button>
+        <div class="lang-menu" id="lang-menu" role="menu" aria-label="Language"></div>
+      </div>
     </div>
   </div>
 
@@ -254,6 +271,14 @@ var I18N = {
 var lang = "en";
 try { lang = localStorage.getItem("sudoku-lang") || "en"; } catch(e) {}
 if (I18N[lang] === undefined) lang = "en";
+/* Languages offered in the 🌐 dropdown menu. To add a language later:
+   give it a full set of strings in I18N above and add one line here —
+   the menu is built from this list. Each label is the language's own
+   name for itself, so it stays readable whatever the current language. */
+var LANGS = [
+  { code: "en", label: "English" },
+  { code: "zh", label: "中文" }
+];
 
 /* ============ state ============ */
 var GIVENS = { easy: 40, medium: 32, hard: 28, expert: 24 };
@@ -494,6 +519,41 @@ function applyLang() {
   document.querySelectorAll("[data-i18n]").forEach(function(el){ var k = el.dataset.i18n; if (t[k]) el.textContent = t[k]; });
   document.querySelectorAll(".diff-btn").forEach(function(b){ b.textContent = t[b.dataset.diff]; });
   document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
+  syncLangMenu();
+}
+/* Build the language dropdown's items from LANGS and mark the current
+   language with a check. Called from applyLang, so the check always
+   follows the active language. */
+function syncLangMenu() {
+  var menu = document.getElementById("lang-menu");
+  if (!menu) return;
+  menu.innerHTML = "";
+  LANGS.forEach(function(L){
+    var item = document.createElement("button");
+    item.className = "lang-item";
+    item.setAttribute("role", "menuitemradio");
+    item.setAttribute("aria-checked", L.code === lang ? "true" : "false");
+    item.innerHTML = '<span class="lang-check" aria-hidden="true">✓</span>' + L.label;
+    (function(code){
+      item.addEventListener("click", function(){ setLang(code); closeLangMenu(); });
+    })(L.code);
+    menu.appendChild(item);
+  });
+}
+function setLang(code) {
+  if (I18N[code] === undefined) return;
+  if (code !== lang) {
+    lang = code;
+    try { localStorage.setItem("sudoku-lang", lang); } catch(e) {}
+    sndTap();
+  }
+  applyLang();
+}
+function closeLangMenu() {
+  var menu = document.getElementById("lang-menu");
+  var btn = document.getElementById("btn-lang");
+  if (menu) menu.classList.remove("show");
+  if (btn) btn.setAttribute("aria-expanded", "false");
 }
 
 /* ============ actions ============ */
@@ -734,7 +794,7 @@ document.addEventListener("pointercancel", function(){ endDrag(); });
 
 for (var pn = 1; pn <= 9; pn++) {
   var b = document.createElement("button");
-  b.className = "num"; b.innerHTML = pn + "<small></small>";
+  b.className = "num"; b.innerHTML = pn; /* + "<small></small>" — small remaining-count number under each pad digit, commented out for now */
   b.setAttribute("aria-label", "Number " + pn + " — tap to place, or drag onto the board");
   (function(n, el){
     el.addEventListener("pointerdown", function(e){
@@ -748,13 +808,15 @@ for (var pn = 1; pn <= 9; pn++) {
   })(pn, b);
   padEl.appendChild(b);
 }
+/* Small remaining-count number under each pad digit — commented out for now.
 function refreshPadCounts() {
   var counts = [0,0,0,0,0,0,0,0,0,0];
   board.forEach(function(v){ if (v) counts[v]++; });
   document.querySelectorAll(".num small").forEach(function(s, k){ s.textContent = 9 - counts[k+1]; });
 }
+*/
 var _render = render;
-render = function(){ _render(); refreshPadCounts(); };
+render = function(){ _render(); /* refreshPadCounts(); */ };
 
 /* ============ wire up ============ */
 buildBoard();
@@ -762,7 +824,6 @@ document.querySelectorAll(".diff-btn").forEach(function(btn){
   btn.addEventListener("click", function(){ sndTap(); newGame(btn.dataset.diff); });
 });
 document.getElementById("btn-new").addEventListener("click", function(){ newGame(); });
-document.getElementById("btn-new-icon").addEventListener("click", function(){ sndTap(); newGame(); });
 document.getElementById("btn-undo").addEventListener("click", undo);
 document.getElementById("btn-hint").addEventListener("click", hint);
 document.getElementById("btn-notes").addEventListener("click", function(){
@@ -780,7 +841,8 @@ document.getElementById("btn-pause").addEventListener("click", function(){
 });
 document.getElementById("pause-veil").addEventListener("click", function(){ paused = false; render(); });
 document.getElementById("btn-reset").addEventListener("click", function(){
-  if (finished) { newGame(); return; }
+  /* Reset always restarts this same puzzle — it never deals a new game.
+     The one and only New Game control is the pill below the pad. */
   paused = true; render();
   document.getElementById("confirm-overlay").classList.add("show");
 });
@@ -797,10 +859,20 @@ document.getElementById("btn-solve").addEventListener("click", function(){
   paused = false;
   solveGame();
 });
+/* The 🌐 button opens the language dropdown instead of toggling:
+   tap again, tap anywhere outside, or press Escape to close it. */
 document.getElementById("btn-lang").addEventListener("click", function(){
-  lang = lang === "en" ? "zh" : "en";
-  try { localStorage.setItem("sudoku-lang", lang); } catch(e) {}
-  applyLang(); sndTap();
+  var menu = document.getElementById("lang-menu");
+  var open = menu.classList.toggle("show");
+  this.setAttribute("aria-expanded", open ? "true" : "false");
+  if (open) sndTap();
+});
+document.addEventListener("click", function(e){
+  var wrap = document.querySelector(".lang-wrap");
+  if (wrap && !wrap.contains(e.target)) closeLangMenu();
+});
+document.addEventListener("keydown", function(e){
+  if (e.key === "Escape") closeLangMenu();
 });
 document.addEventListener("keydown", function(e){
   if (e.key >= "1" && e.key <= "9") placeNumber(parseInt(e.key, 10));
