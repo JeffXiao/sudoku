@@ -150,11 +150,6 @@ body.dragging *{cursor:grabbing !important;}
   display:none; align-items:center; justify-content:center; font-size:56px; z-index:5; cursor:pointer;
 }
 .pause-veil.show{display:flex;}
-.new-btn{
-  align-self:center; background:var(--accent); color:#fff; border-radius:999px;
-  padding:10px 26px; font-size:17px; min-height:48px; box-shadow:var(--shadow);
-}
-@media (prefers-color-scheme: dark){ .new-btn{color:#0b1713;} }
 /* language dropdown */
 .lang-wrap{position:relative;}
 .lang-menu{
@@ -235,8 +230,6 @@ body.dragging *{cursor:grabbing !important;}
   </div>
 
   <div class="pad" id="pad"></div>
-
-  <button class="new-btn" id="btn-new">＋ <span data-i18n="newgame">New Game</span></button>
 </div>
 
 <!-- reset confirm -->
@@ -823,7 +816,6 @@ buildBoard();
 document.querySelectorAll(".diff-btn").forEach(function(btn){
   btn.addEventListener("click", function(){ sndTap(); newGame(btn.dataset.diff); });
 });
-document.getElementById("btn-new").addEventListener("click", function(){ newGame(); });
 document.getElementById("btn-undo").addEventListener("click", undo);
 document.getElementById("btn-hint").addEventListener("click", hint);
 document.getElementById("btn-notes").addEventListener("click", function(){
@@ -842,7 +834,7 @@ document.getElementById("btn-pause").addEventListener("click", function(){
 document.getElementById("pause-veil").addEventListener("click", function(){ paused = false; render(); });
 document.getElementById("btn-reset").addEventListener("click", function(){
   /* Reset always restarts this same puzzle — it never deals a new game.
-     The one and only New Game control is the pill below the pad. */
+     A fresh game starts by picking a difficulty above. */
   paused = true; render();
   document.getElementById("confirm-overlay").classList.add("show");
 });
